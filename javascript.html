@@ -1,0 +1,146 @@
+<script>
+      // IMPORTANT: Replace the value for DEVELOPER_KEY with the API key obtained
+      // from the Google Developers Console.
+      var DEVELOPER_KEY     = '<YOUR-DEV-KEY>';
+      var DIALOG_DIMENSIONS = {width: 600, height: 425};
+      var pickerApiLoaded   = false;
+   
+      /* Loads the Google Picker API.*/
+      function onApiLoad() {
+        gapi.load('picker', {'callback': function() {
+          pickerApiLoaded = true;
+        }});
+       }
+  
+      /**
+       * Gets the user's OAuth 2.0 access token from the server-side script so that
+       * it can be passed to Picker. This technique keeps Picker from needing to
+       * show its own authorization dialog, but is only possible if the OAuth scope
+       * that Picker needs is available in Apps Script. Otherwise, your Picker code
+       * will need to declare its own OAuth scopes.
+       */  
+      function openDrivePicker() {
+        google.script.run.withSuccessHandler(showFilePicker)
+            .withFailureHandler(showError)
+            .initPicker(); //from Code.gs         
+      }
+  
+      /**
+       * Creates a Picker that can access the user's spreadsheets. This function
+       * uses advanced options to hide the Picker's left navigation panel and
+       * default title bar.
+       *
+       * @param {string} token An OAuth 2.0 access token that lets Picker access the
+       *     file type specified in the addView call.
+       */
+      
+    
+      function showFilePicker(config) {
+  
+        // Show all files in Google Drive for selection
+        var view = new google.picker.DocsView(google.picker.ViewId.DOCS);
+      
+        //view.setIncludeFolders(config.picker.includeFolders)
+        //    .setSelectFolderEnabled(config.picker.allowFolderSelect)
+            view.setParent(config.parentFolder)
+      
+        // Show file as a grid or list (compact)
+        if (config.picker.viewMode === "GRID")
+          view.setMode(google.picker.DocsViewMode.GRID);
+        else
+          view.setMode(google.picker.DocsViewMode.LIST);
+      
+        if (config.picker.mimeTypes)
+          view.setMimeTypes(config.picker.mimeTypes);
+      
+        var picker = new google.picker.PickerBuilder()
+                    .addView(view)
+                    .setLocale(config.locale)
+                    .setOAuthToken(config.token)
+                    .setDeveloperKey(config.developerKey)
+                    .setCallback(pickerCallback)
+                    .setOrigin(config.origin)
+                    .setSize(config.dialogDimensions.width - 2,
+                             config.dialogDimensions.height - 2);
+      
+        if (config.picker.hideTitle)
+         picker.hideTitleBar();
+      
+        // Show files / folders owned by the user
+        if (config.picker.mineOnly)
+          picker.enableFeature(google.picker.Feature.MINE_ONLY);
+      
+        if (config.picker.navhidden)
+          picker.enableFeature(google.picker.Feature.NAV_HIDDEN);
+      
+        // Allow uses to select multiple files / folders
+        if (config.picker.multiselectEnabled)
+        picker.enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+      
+      
+        var pickerUI = picker.build();
+        //$('.picker-dialog').css('z-index',9999);    
+        pickerUI.setVisible(true);    
+      }
+    
+     
+    
+      /**
+      * A callback function that extracts the chosen document's metadata from the
+      * response object. For details on the response object, see
+      * https://developers.google.com/picker/docs/result
+      *
+      * @param {object} data The response object.
+      */
+      function pickerCallback(data) {
+        var action = data[google.picker.Response.ACTION];
+        
+        if (action == google.picker.Action.PICKED) {
+          var doc = data[google.picker.Response.DOCUMENTS][0];
+          var id = doc[google.picker.Document.ID];
+          var url = doc[google.picker.Document.URL];
+          var title = doc[google.picker.Document.NAME];
+          document.getElementById('divFileSelected').innerHTML =
+          '<b>You chose:</b><br>Name: <a href="' + url + '">' + title +
+          '</a><br>ID: ' + id;
+          
+          
+          
+          //close the dialogue box
+          //google.script.host.close();    
+      
+          return;
+          
+        } 
+        else if (action == google.picker.Action.CANCEL) {
+         document.getElementById('divFileSelected').innerHTML = 'Picker canceled.';      
+        }
+      }   
+  
+  
+      function showError(message) {
+       document.getElementById('divFileSelected').innerHTML = 'Error: ' + message;
+       }
+          
+      // Callback function
+      function fileSelected(data) {
+        var html = [];
+        var action = data[google.picker.Response.ACTION];
+        if (action == google.picker.Action.PICKED) {
+          var documents = data[google.picker.Response.DOCUMENTS];
+          for (var i = 0 ; i < documents.length ; i++) {
+          html.push([
+          documents[i][google.picker.Document.ID],
+          documents[i][google.picker.Document.NAME],
+          documents[i][google.picker.Document.MIME_TYPE],
+          documents[i][google.picker.Document.URL]
+          ].join("\t"));
+          }
+        } else if (action == google.picker.Action.CANCEL) {
+          html.push("No file selected");
+        }
+        showError(html.join("\n"));
+      }
+      
+</script>
+
